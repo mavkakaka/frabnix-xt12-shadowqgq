@@ -1,4 +1,4 @@
-local imgui = require "mimgui"
+locl imgui = require "mimgui"
 local faicons = require("fAwesome6")
 
 local window = imgui.new.bool(false)
